@@ -2,6 +2,7 @@ package router
 
 import (
 	"fmt"
+	"go-api-base/app/auth"
 	"go-api-base/app/user"
 	"go-api-base/model"
 
@@ -10,27 +11,17 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type userRegisterRequest struct {
-	Email    string `json:"email" binding:"required,email,max=255"`
-	Password string `json:"password" binding:"required,min=4,max=20"`
-	Name     string `json:"name" binding:"required,max=255"`
-}
-
-type userLoginRequest struct {
-	Email    string `json:"email" binding:"required"`
-	Password string `json:"password" binding:"required"`
-}
-
-type authTokenResponse struct {
-	Token string `json:"token"`
-}
-
 type userHandler struct {
 	userService user.Service
+	authService auth.Service
 }
 
 func (userHandler *userHandler) register(ginContext *gin.Context) {
-	var request userRegisterRequest
+	var request struct {
+		Email    string `json:"email" binding:"required,email,max=255"`
+		Password string `json:"password" binding:"required,min=4,max=20"`
+		Name     string `json:"name" binding:"required,max=255"`
+	}
 
 	if err := ginContext.ShouldBind(&request); err != nil {
 		// if err != io.EOF {
@@ -48,16 +39,9 @@ func (userHandler *userHandler) register(ginContext *gin.Context) {
 		return
 	}
 
-	user := model.User{
-		UserID:   model.NewUserID(),
-		Email:    request.Email,
-		Password: model.NewPassword(request.Password),
-		Name:     request.Name,
-	}
+	user := model.NewUser(request.Email, request.Password, request.Name)
 
-	token, err := userHandler.userService.Register(user)
-	if err != nil {
-		fmt.Println(err)
+	if err := userHandler.userService.Register(user); err != nil {
 		ginContext.JSON(
 			http.StatusInternalServerError,
 			newErrorResponse(
@@ -69,17 +53,18 @@ func (userHandler *userHandler) register(ginContext *gin.Context) {
 		return
 	}
 
-	response := &successResponse{
-		Code: http.StatusOK,
-		Data: authTokenResponse{
-			Token: token,
-		},
+	tokenString, err := userHandler.authService.NewIdentifier(user.UserID)
+	if err != nil {
+		fmt.Println(err)
 	}
-	ginContext.JSON(http.StatusOK, response)
+	fmt.Println(tokenString)
 }
 
 func (userHandler *userHandler) login(ginContext *gin.Context) {
-	var request userLoginRequest
+	var request struct {
+		Email    string `json:"email" binding:"required"`
+		Password string `json:"password" binding:"required"`
+	}
 
 	if err := ginContext.ShouldBind(&request); err != nil {
 		ginContext.JSON(
@@ -90,7 +75,7 @@ func (userHandler *userHandler) login(ginContext *gin.Context) {
 		return
 	}
 
-	token, err := userHandler.userService.Login(
+	userID, err := userHandler.userService.FindUserID(
 		request.Email,
 		request.Password,
 	)
@@ -106,11 +91,23 @@ func (userHandler *userHandler) login(ginContext *gin.Context) {
 		return
 	}
 
-	response := &successResponse{
-		Code: http.StatusOK,
-		Data: authTokenResponse{
-			Token: token,
-		},
+	tokenString, err := userHandler.authService.NewIdentifier(*userID)
+	if err != nil {
+		fmt.Println(err)
+
+		return
 	}
-	ginContext.JSON(http.StatusOK, response)
+	fmt.Println(tokenString)
+}
+
+func (userHandler *userHandler) index(ginContext *gin.Context) {
+	tokenString := ginContext.GetHeader("Authorization")
+
+	userID, err := userHandler.authService.Authorize(tokenString)
+	if err != nil {
+		fmt.Println(err)
+
+		return
+	}
+	fmt.Println(userID)
 }

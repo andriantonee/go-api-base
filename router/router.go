@@ -1,18 +1,13 @@
 package router
 
 import (
+	"go-api-base/app/auth"
 	"go-api-base/app/user"
 
 	"github.com/gin-gonic/gin"
 )
 
-// Config is a container for config (E.g: env) and all service
-type Config struct {
-	UserService user.Service
-}
-
-// New is a constructor to wrap all handler and it's usage
-func New(config *Config) *gin.Engine {
+func New(userService user.Service, authService auth.Service) *gin.Engine {
 	// f, _ := os.Create("gin.log")
 	// gin.DefaultWriter = io.MultiWriter(f)
 
@@ -33,11 +28,13 @@ func New(config *Config) *gin.Engine {
 	// router.Use(gin.Recovery())
 
 	userHandlerInstance := userHandler{
-		userService: config.UserService,
+		userService: userService,
+		authService: authService,
 	}
 
 	api := router.Group("/api")
 	{
+		api.GET("/user", userHandlerInstance.index)
 		api.POST("/user", userHandlerInstance.register)
 		api.POST("/auth/login", userHandlerInstance.login)
 	}

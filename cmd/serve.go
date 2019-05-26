@@ -3,6 +3,7 @@ package cmd
 import (
 	"database/sql"
 	"fmt"
+	"go-api-base/app/auth"
 	"go-api-base/app/user"
 	"go-api-base/mysql"
 	"go-api-base/router"
@@ -54,17 +55,13 @@ var serveCmd = &cobra.Command{
 
 		userRepository := mysql.NewUserRepository(db)
 
-		routerConfig := &router.Config{
-			UserService: user.NewService(
-				jwtSecretKey,
-				userRepository,
-			),
-		}
+		userService := user.NewService(userRepository)
+		authService := auth.NewService(jwtSecretKey)
 
 		fmt.Println("App is runnning")
 		fmt.Println("Ctrl + C to terminate")
 
-		app := router.New(routerConfig)
+		app := router.New(userService, authService)
 
 		port := viper.GetString("PORT")
 

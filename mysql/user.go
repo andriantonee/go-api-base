@@ -53,7 +53,7 @@ func (userRepository *userRepository) Store(user model.User) error {
 
 func (userRepository *userRepository) FindByEmail(
 	email string,
-) model.User {
+) *model.User {
 	var user model.User
 
 	query := `
@@ -62,13 +62,16 @@ func (userRepository *userRepository) FindByEmail(
 		WHERE email = ?
 	`
 
-	userRepository.db.QueryRow(query, email).Scan(
+	err := userRepository.db.QueryRow(query, email).Scan(
 		&user.UserID,
 		&user.Email,
 		&user.PasswordEncrypted,
 		&user.Password.PasswordSalt,
 		&user.Name,
 	)
+	if err != nil {
+		return nil
+	}
 
-	return user
+	return &user
 }

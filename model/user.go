@@ -15,27 +15,38 @@ type User struct {
 	Name              string
 }
 
+func NewUser(email string, passwordRaw string, name string) User {
+	userID := NewUserID()
+	password := NewPassword(passwordRaw)
+	return User{
+		UserID:   userID,
+		Email:    email,
+		Password: password,
+		Name:     name,
+	}
+}
+
 func NewUserID() UserID {
 	return UserID(uuid.New().String())
 }
 
 type UserID string
 
-func NewPassword(password string) Password {
+func NewPassword(passwordRaw string) Password {
 	return Password{
-		Password:     password,
+		PasswordRaw:  passwordRaw,
 		PasswordSalt: uuid.New().String(),
 	}
 }
 
 type Password struct {
-	Password     string
+	PasswordRaw  string
 	PasswordSalt string
 }
 
 func (password *Password) Encrypt() string {
 	crypto := sha512.New()
-	crypto.Write([]byte(password.PasswordSalt + password.Password))
+	crypto.Write([]byte(password.PasswordSalt + password.PasswordRaw))
 
 	return base64.URLEncoding.EncodeToString(crypto.Sum(nil))
 }
@@ -43,5 +54,5 @@ func (password *Password) Encrypt() string {
 type UserRepository interface {
 	IsEmailExists(email string) bool
 	Store(user User) error
-	FindByEmail(email string) User
+	FindByEmail(email string) *User
 }
