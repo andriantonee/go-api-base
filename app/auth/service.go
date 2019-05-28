@@ -1,15 +1,12 @@
 package auth
 
 import (
-	"errors"
 	"fmt"
 	"go-api-base/model"
 	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
 )
-
-var ErrNotAuthorize = errors.New("not authorize")
 
 type Service interface {
 	NewIdentifier(userID model.UserID) (string, error)
@@ -27,18 +24,20 @@ type service struct {
 }
 
 type jwtClaims struct {
-	UserID model.UserID `json:"user_id"`
-	jwt.StandardClaims
+	UserID   model.UserID `json:"user_id"`
+	IssuedAt int64        `json:"iat"`
+}
+
+func (jwtC jwtClaims) Valid() error {
+	return nil
 }
 
 func (service *service) NewIdentifier(userID model.UserID) (string, error) {
 	issuedAt := time.Now()
 
 	claims := jwtClaims{
-		UserID: userID,
-		StandardClaims: jwt.StandardClaims{
-			IssuedAt: issuedAt.Unix(),
-		},
+		UserID:   userID,
+		IssuedAt: issuedAt.Unix(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -47,8 +46,11 @@ func (service *service) NewIdentifier(userID model.UserID) (string, error) {
 }
 
 func (service *service) Authorize(tokenString string) (*model.UserID, error) {
-	token, err := jwt.Parse(
+	var claims jwtClaims
+
+	_, err := jwt.ParseWithClaims(
 		tokenString,
+		&claims,
 		func(token *jwt.Token) (interface{}, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
@@ -61,10 +63,5 @@ func (service *service) Authorize(tokenString string) (*model.UserID, error) {
 		return nil, err
 	}
 
-	claims, ok := token.Claims.(jwtClaims)
-	if ok {
-		return &claims.UserID, nil
-	}
-
-	return nil, ErrNotAuthorize
+	return &claims.UserID, nil
 }

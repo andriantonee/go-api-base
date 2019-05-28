@@ -5,10 +5,10 @@ import (
 	"go-api-base/app/auth"
 	"go-api-base/app/user"
 	"go-api-base/model"
-
-	"net/http"
+	"io"
 
 	"github.com/gin-gonic/gin"
+	"gopkg.in/go-playground/validator.v8"
 )
 
 type userHandler struct {
@@ -24,38 +24,31 @@ func (userHandler *userHandler) register(ginContext *gin.Context) {
 	}
 
 	if err := ginContext.ShouldBind(&request); err != nil {
-		// if err != io.EOF {
-		// 	if validationErrors, ok := err.(validator.ValidationErrors); ok {
-		// 		badRequestValidator(ginContext, request, &validationErrors)
-
-		// 		return
-		// 	}
-		// }
-		ginContext.JSON(
-			http.StatusOK,
-			newErrorResponse(http.StatusBadRequest, "Bad Request"),
-		)
-
+		if err != io.EOF {
+			if validationErrors, ok := err.(validator.ValidationErrors); ok {
+				badRequestValidationMessage(
+					ginContext,
+					request,
+					validationErrors,
+				)
+				return
+			}
+		}
+		badRequestEOF(ginContext)
 		return
 	}
 
 	user := model.NewUser(request.Email, request.Password, request.Name)
 
 	if err := userHandler.userService.Register(user); err != nil {
-		ginContext.JSON(
-			http.StatusInternalServerError,
-			newErrorResponse(
-				http.StatusInternalServerError,
-				"Internal Server Error",
-			),
-		)
-
+		badRequest(ginContext, err)
 		return
 	}
 
 	tokenString, err := userHandler.authService.NewIdentifier(user.UserID)
 	if err != nil {
-		fmt.Println(err)
+		internalServerError(ginContext, err)
+		return
 	}
 	fmt.Println(tokenString)
 }
@@ -67,11 +60,17 @@ func (userHandler *userHandler) login(ginContext *gin.Context) {
 	}
 
 	if err := ginContext.ShouldBind(&request); err != nil {
-		ginContext.JSON(
-			http.StatusOK,
-			newErrorResponse(http.StatusBadRequest, "Bad Request"),
-		)
-
+		if err != io.EOF {
+			if validationErrors, ok := err.(validator.ValidationErrors); ok {
+				badRequestValidationMessage(
+					ginContext,
+					request,
+					validationErrors,
+				)
+				return
+			}
+		}
+		badRequestEOF(ginContext)
 		return
 	}
 
@@ -80,21 +79,13 @@ func (userHandler *userHandler) login(ginContext *gin.Context) {
 		request.Password,
 	)
 	if err != nil {
-		ginContext.JSON(
-			http.StatusInternalServerError,
-			newErrorResponse(
-				http.StatusInternalServerError,
-				"Internal Server Error",
-			),
-		)
-
+		badRequest(ginContext, err)
 		return
 	}
 
 	tokenString, err := userHandler.authService.NewIdentifier(*userID)
 	if err != nil {
-		fmt.Println(err)
-
+		internalServerError(ginContext, err)
 		return
 	}
 	fmt.Println(tokenString)
@@ -105,9 +96,8 @@ func (userHandler *userHandler) index(ginContext *gin.Context) {
 
 	userID, err := userHandler.authService.Authorize(tokenString)
 	if err != nil {
-		fmt.Println(err)
-
+		unauthorized(ginContext, err)
 		return
 	}
-	fmt.Println(userID)
+	fmt.Println(*userID)
 }

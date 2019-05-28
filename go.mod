@@ -10,4 +10,5 @@ require (
 	github.com/joho/godotenv v1.3.0
 	github.com/spf13/cobra v0.0.4
 	github.com/spf13/viper v1.4.0
+	gopkg.in/go-playground/validator.v8 v8.18.2
 )

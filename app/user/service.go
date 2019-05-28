@@ -5,8 +5,10 @@ import (
 	"go-api-base/model"
 )
 
-var ErrDuplicateEmail = errors.New("this email already exists")
-var ErrAccountNotExists = errors.New("this account is not exists")
+var (
+	ErrDuplicateEmail   = errors.New("this email already exists")
+	ErrAccountNotExists = errors.New("this account is not exists")
+)
 
 type Service interface {
 	Register(user model.User) error
@@ -29,7 +31,7 @@ func (service *service) Register(user model.User) error {
 	}
 
 	if err := service.userRepository.Store(user); err != nil {
-		return err
+		return ErrDuplicateEmail
 	}
 
 	return nil
